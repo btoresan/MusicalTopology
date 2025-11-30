@@ -10,8 +10,6 @@ import torch
 ds = load_dataset("brunokreiner/genius-lyrics", split="train")
 print(len(ds), "songs loaded")
 
-ds = ds[:128]
-
 # We will embed ds["lyrics"]
 lyrics = ds["lyrics"]
 song_ids = ds["id"]
