@@ -10,6 +10,8 @@ import torch
 ds = load_dataset("brunokreiner/genius-lyrics", split="train")
 print(len(ds), "songs loaded")
 
+ds = ds[:128]
+
 # We will embed ds["lyrics"]
 lyrics = ds["lyrics"]
 song_ids = ds["id"]
@@ -65,26 +67,10 @@ np.save("emb_data/lyrics_embeddings.npy", emb_norm)
 
 meta = pd.DataFrame({
     "song_id": song_ids,
-    "title": ds["title"],
-    "artist": ds["artist"],
-    "genre": ds["genre"] if "genre" in ds.column_names else None
+    "artist": ds["artist_name"],
+    "genre": ds["genres_list"],
+    "popularity": ds["popularity"]
 })
 meta.to_parquet("emb_data/metadata.parquet", index=False)
 
 print("Saved embeddings + metadata")
-
-# -----------------------------
-# 6. Build and save FAISS index
-# -----------------------------
-import faiss
-
-d = emb_norm.shape[1]  # embedding dimension
-index = faiss.IndexFlatIP(d)  # cosine similarity on L2-normalized vectors
-
-# Add embeddings
-index.add(emb_norm)
-
-# Save
-faiss.write_index(index, "emb_data/faiss_lyrics.index")
-
-print("FAISS index saved with", index.ntotal, "vectors")
