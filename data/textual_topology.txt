@@ -1,16 +1,2 @@
-Embeddings: (128, 768)
-                  song_id        artist                                         genre  popularity
-0  5FDh0G5oQ2UD9JxWiDCT1x          None                                          None         NaN
-1  6XK6Zw6JkFsHXzAcMWNiIr          None                                          None         NaN
-2  7GX5flRQZVHRAGd6B4TmDO  Lil Uzi Vert  ['melodic rap', 'philly rap', 'rap', 'trap']        82.0
-3  73q3FpQVXWk5eSUnyo83E4          None                                          None         NaN
-4  1IdTIzkTK6CcpKKgMUGbg7          None                                          None         NaN
-Running Ripser...
-Persistent Entropies:
-H0 entropy: 4.838226159410822
-H1 entropy: 4.14498719433797
-
-TDA per genre:
-null                 | samples:  111 | H1 loops: 60
-
-Done.
+H0 entropy: 12.983569966270291
+H1 entropy: 13.996598968080768
