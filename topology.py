@@ -145,33 +145,22 @@ results_df.to_csv("h1_loops_summary.csv", index=False, encoding="utf-8")
 
 print("Results saved to h1_loops_summary.csv")
 
-###############################################################################
-# 4. Persistence Entropy
-###############################################################################
-import numpy as np
+# ================================================
+# H0 ANALYSIS — CLUSTERS FROM PERSISTENCE
+# ================================================
 
-def persistent_entropy_stream(diagram):
-    total_length = 0.0
+H0 = diagrams[0]
+pers0 = H0[:,1] - H0[:,0]
 
-    # First pass: compute total persistence (L)
-    for birth, death in diagram:
-        if np.isfinite(death):
-            total_length += (death - birth)
+# ignore infinite deaths (the final component)
+finite_mask = np.isfinite(H0[:,1])
+H0_finite = H0[finite_mask]
+pers0 = H0_finite[:,1] - H0_finite[:,0]
 
-    if total_length == 0:
-        return 0.0
+K0 = min(5, len(H0_finite))
+top_h0 = np.argsort(pers0)[-K0:][::-1]
 
-    # Second pass: compute entropy
-    entropy = 0.0
-    for birth, death in diagram:
-        if np.isfinite(death):
-            l = death - birth
-            p = l / total_length
-            entropy -= p * np.log(p)
-
-    return entropy
-
-print("Persistent Entropies:")
-for dim, diag in enumerate(diagrams):
-    H = persistent_entropy_stream(diag)
-    print(f"H{dim} entropy:", H)
+print("\n================ H0 TOP FEATURES ================")
+for rank, hidx in enumerate(top_h0):
+    birth, death = H0_finite[hidx]
+    print(f"Cluster #{rank+1}: persistence={pers0[hidx]:.4f}, death={death:.4f}")
