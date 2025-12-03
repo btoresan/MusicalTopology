@@ -6,8 +6,8 @@ from tqdm import tqdm
 # ------------------------------
 # Load embeddings + metadata
 # ------------------------------
-embeddings = np.load("emb_data/lyrics_embeddings.npy")   # shape (N, d)
-meta = pd.read_parquet("emb_data/metadata.parquet")
+embeddings = np.load("emb_data_small/lyrics_embeddings.npy")   # shape (N, d)
+meta = pd.read_parquet("emb_data_small/metadata.parquet")
 
 print("Embeddings:", embeddings.shape)
 print(meta.head())
@@ -56,74 +56,87 @@ from persim import plot_diagrams
 import matplotlib.pyplot as plt
 
 print("Running Ripser...")
-tda = ripser(dist_matrix, maxdim=1, distance_matrix=True)
+
+tda = ripser(
+    dist_matrix,
+    maxdim=1,
+    distance_matrix=True,
+    do_cocycles=True      # IMPORTANT: enables cocycle extraction
+)
 
 diagrams = tda["dgms"]
-pairs = {dim: diag for dim, diag in enumerate(diagrams)}
-
-
-#plt.figure(figsize=(8,4))
-#plot_diagrams(diagrams)
-#plt.show()
-
-output = []
-
-output.append("===== TOPOLOGICAL ANALYSIS REPORT =====\n")
-
-# -----------------------------------------
-# H1 (loops)
-# -----------------------------------------
+cocycles = tda["cocycles"][1]   # H1 cocycles
 H1 = diagrams[1]
-H1_pairs = pairs[1]
 
-output.append("\n=== H1 (1-dimensional holes / loops) ===\n")
+print("Found", len(H1), "H1 features")
 
-for (b, d), (birth_simplex, death_simplex) in zip(H1, H1_pairs):
-    pers = d - b
-    if pers < 0.05:  # threshold for meaningful loops – adjust if needed
+
+# ============================================================
+# (C) EXTRACT LOOP POINTS FROM COCYCLES
+# ============================================================
+
+def cocycle_to_points(cocycle, threshold=0.3):
+    """
+    Convert a cocycle (list of (i,j,w) tuples) into a set of points
+    likely part of the persistent cycle.
+    Edges with |w| > threshold are considered significant.
+    """
+    pts = set()
+    for (i, j, w) in cocycle:
+        if abs(w) > threshold:
+            pts.add(i)
+            pts.add(j)
+    return list(pts)
+
+
+# ============================================================
+# (D) GET TOP PERSISTENT H1 LOOPS
+# ============================================================
+
+pers = H1[:,1] - H1[:,0]
+K = min(5, len(H1))         # Show top 5 loops (or fewer if dataset small)
+top_idx = np.argsort(pers)[-K:][::-1]
+
+print("\nTop H1 features sorted by persistence:")
+for idx in top_idx:
+    print(f"  Feature {idx}: persistence = {pers[idx]:.4f}")
+
+
+# ============================================================
+# (E) PRINT METADATA SUMMARY FOR EACH LOOP
+# ============================================================
+
+for rank, hidx in enumerate(top_idx):
+    birth, death = H1[hidx]
+    cocycle = cocycles[hidx]
+    pts = cocycle_to_points(cocycle, threshold=0.3)
+
+    print("\n" + "="*80)
+    print(f" LOOP #{rank+1} — H1 Feature Index {hidx}")
+    print(f" Birth = {birth:.4f}, Death = {death:.4f}, Persistence = {pers[hidx]:.4f}")
+    print(f" Number of points in loop ≈ {len(pts)}")
+    print("-"*80)
+
+    if len(pts) == 0:
+        print("No significant edges found for this cocycle (increase threshold?).")
         continue
-    
-    output.append(f"\nH1 feature – persistence {pers:.4f}")
-    
-    # birth simplex
-    output.append("  Birth simplex points:")
-    for idx in birth_simplex:
-        row = meta.iloc[idx]
-        output.append(f"    - {row['artist']} — {row['song_id']} — genre={row['genre']}")
-    
-    # death simplex
-    output.append("  Death simplex points:")
-    for idx in death_simplex:
-        row = meta.iloc[idx]
-        output.append(f"    - {row['artist']} — {row['song_id']} — genre={row['genre']}")
 
-# -----------------------------------------
-# H0 (connected components)
-# -----------------------------------------
-H0 = diagrams[0]
-H0_pairs = pairs[0]
+    loop_meta = meta.iloc[pts]
 
-output.append("\n=== H0 (connected components) ===\n")
+    # ---- Top Genres ----
+    print("\nTop Genres:")
+    print(loop_meta["genre"].value_counts().head())
 
-for (b, d), (edge, _) in zip(H0, H0_pairs):
-    pers = d - b
-    if pers < 0.05:
-        continue
-    
-    output.append(f"\nH0 feature – persistence {pers:.4f}")
-    
-    i, j = edge
-    for idx in [i, j]:
-        row = meta.iloc[idx]
-        output.append(f"    - {row['artist']} — {row['song_id']} — genre={row['genre']}")
+    # ---- Top Artists ----
+    print("\nTop Artists:")
+    print(loop_meta["artist"].value_counts().head())
 
-# -----------------------------------------
-# Save to TXT
-# -----------------------------------------
-with open("tda_features.txt", "w", encoding="utf-8") as f:
-    f.write("\n".join(output))
+    # ---- Sample Songs ----
+    print("\nSample Songs:")
+    print(loop_meta[["artist", "song_id", "genre", "popularity"]].head())
 
-print("Saved meaningful persistent features to tda_features.txt")
+    print("="*80)
+
 
 ###############################################################################
 # 4. Persistence Entropy
@@ -155,37 +168,3 @@ print("Persistent Entropies:")
 for dim, diag in enumerate(diagrams):
     H = persistent_entropy_stream(diag)
     print(f"H{dim} entropy:", H)
-
-
-
-###############################################################################
-# 5. Per-genre topology
-###############################################################################
-
-from sklearn.metrics import pairwise_distances
-
-genres = meta["genre"].fillna("null")
-
-print("\nTDA per genre:")
-for g in genres.unique():
-    idx = np.where(genres == g)[0]
-
-    if len(idx) < 10:
-        continue  # minimum samples for meaningful TDA
-
-    if len(idx) > 3000:
-        idx = np.random.choice(idx, 3000, replace=False)
-
-
-    emb_g = embeddings[idx]
-
-    # Use Ripser on point cloud directly (no N×N matrix!)
-    tda_g = ripser(emb_g, maxdim=1)
-    dgm_g = tda_g["dgms"]
-    
-    h1 = dgm_g[1]
-
-    print(f"{g:20s} | samples: {len(idx):4d} | H1 loops: {len(h1)}")
-
-print("\nDone.")
-

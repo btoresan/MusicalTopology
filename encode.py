@@ -8,7 +8,11 @@ from tqdm import tqdm
 import torch
 
 ds = load_dataset("brunokreiner/genius-lyrics", split="train")
-print(len(ds), "songs loaded")
+
+ds = ds[:128]
+
+print(len(ds), "songs loaded")\
+
 
 # We will embed ds["lyrics"]
 lyrics = ds["lyrics"]
@@ -59,9 +63,9 @@ emb_norm = embeddings / norms
 # 5. Save embeddings + metadata
 # -----------------------------
 import os
-os.makedirs("emb_data", exist_ok=True)
+os.makedirs("emb_data_small", exist_ok=True)
 
-np.save("emb_data/lyrics_embeddings.npy", emb_norm)
+np.save("emb_data_small/lyrics_embeddings.npy", emb_norm)
 
 meta = pd.DataFrame({
     "song_id": song_ids,
@@ -69,6 +73,6 @@ meta = pd.DataFrame({
     "genre": ds["genres_list"],
     "popularity": ds["popularity"]
 })
-meta.to_parquet("emb_data/metadata.parquet", index=False)
+meta.to_parquet("emb_data_small/metadata.parquet", index=False)
 
 print("Saved embeddings + metadata")
