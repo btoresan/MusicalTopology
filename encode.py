@@ -71,7 +71,8 @@ meta = pd.DataFrame({
     "song_id": song_ids,
     "artist": ds["artist_name"],
     "genre": ds["genres_list"],
-    "popularity": ds["popularity"]
+    "popularity": ds["popularity"],
+    "lyrics": ds["lyrics"]
 })
 meta.to_parquet("emb_data_small/metadata.parquet", index=False)
 

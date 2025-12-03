@@ -67,8 +67,8 @@ tda = ripser(
 diagrams = tda["dgms"]
 cocycles = tda["cocycles"][1]   # H1 cocycles
 H1 = diagrams[1]
-
 print("Found", len(H1), "H1 features")
+
 
 
 # ============================================================
@@ -103,40 +103,47 @@ for idx in top_idx:
 
 
 # ============================================================
-# (E) PRINT METADATA SUMMARY FOR EACH LOOP
+# (E) STORE METADATA SUMMARY FOR EACH LOOP IN A CSV
 # ============================================================
+
+# Initialize a list to store results
+results = []
 
 for rank, hidx in enumerate(top_idx):
     birth, death = H1[hidx]
     cocycle = cocycles[hidx]
     pts = cocycle_to_points(cocycle, threshold=0.3)
 
-    print("\n" + "="*80)
-    print(f" LOOP #{rank+1} — H1 Feature Index {hidx}")
-    print(f" Birth = {birth:.4f}, Death = {death:.4f}, Persistence = {pers[hidx]:.4f}")
-    print(f" Number of points in loop ≈ {len(pts)}")
-    print("-"*80)
-
+    # Skip if no significant edges are found
     if len(pts) == 0:
-        print("No significant edges found for this cocycle (increase threshold?).")
         continue
 
     loop_meta = meta.iloc[pts]
 
-    # ---- Top Genres ----
-    print("\nTop Genres:")
-    print(loop_meta["genre"].value_counts().head())
+    # Collect data for this loop
+    result = {
+        "loop_rank": rank + 1,
+        "h1_feature_index": hidx,
+        "birth": birth,
+        "death": death,
+        "persistence": pers[hidx],
+        "num_points_in_loop": len(pts),
+        "top_genres": ", ".join(loop_meta["genre"].value_counts().head().index),
+        "top_artists": ", ".join(loop_meta["artist"].value_counts().head().index),
+        "sample_songs": "; ".join(
+            loop_meta[["artist", "lyrics"]]
+            .apply(lambda row: f"{row['artist']} — {row['lyrics'][:100]}...", axis=1)
+            .head()
+        ),
+    }
 
-    # ---- Top Artists ----
-    print("\nTop Artists:")
-    print(loop_meta["artist"].value_counts().head())
+    results.append(result)
 
-    # ---- Sample Songs ----
-    print("\nSample Songs:")
-    print(loop_meta[["artist", "song_id", "genre", "popularity"]].head())
+# Save results to a CSV file
+results_df = pd.DataFrame(results)
+results_df.to_csv("h1_loops_summary.csv", index=False, encoding="utf-8")
 
-    print("="*80)
-
+print("Results saved to h1_loops_summary.csv")
 
 ###############################################################################
 # 4. Persistence Entropy
