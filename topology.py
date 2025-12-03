@@ -164,3 +164,56 @@ print("\n================ H0 TOP FEATURES ================")
 for rank, hidx in enumerate(top_h0):
     birth, death = H0_finite[hidx]
     print(f"Cluster #{rank+1}: persistence={pers0[hidx]:.4f}, death={death:.4f}")
+
+# ================================================
+# H0 ANALYSIS — CLUSTERS FROM PERSISTENCE (CSV)
+# ================================================
+
+# Initialize a list to store H0 results
+h0_results = []
+
+# Filter out infinite deaths (the final component)
+finite_mask = np.isfinite(H0[:,1])
+H0_finite = H0[finite_mask]
+pers0 = H0_finite[:,1] - H0_finite[:,0]
+
+K0 = min(5, len(H0_finite))  # Top 5 clusters (or fewer if dataset small)
+top_h0 = np.argsort(pers0)[-K0:][::-1]
+
+for rank, hidx in enumerate(top_h0):
+    birth, death = H0_finite[hidx]
+
+    # Collect all points in the cluster (connected component)
+    cluster_points = set()
+    for i, neighbors in enumerate(indices):
+        for j, neighbor in enumerate(neighbors):
+            if distances[i, j] <= death:
+                cluster_points.add(neighbor)
+
+    cluster_points = list(cluster_points)
+    cluster_meta = meta.iloc[cluster_points]
+
+    # Collect data for this cluster
+    result = {
+        "cluster_rank": rank + 1,
+        "h0_feature_index": hidx,
+        "birth": birth,
+        "death": death,
+        "persistence": pers0[hidx],
+        "num_points_in_cluster": len(cluster_points),
+        "top_genres": ", ".join(cluster_meta["genre"].value_counts().head().index),
+        "top_artists": ", ".join(cluster_meta["artist"].value_counts().head().index),
+        "sample_songs": "; ".join(
+            cluster_meta[["artist", "lyrics"]]
+            .apply(lambda row: f"{row['artist']} — {row['lyrics'][:100]}...", axis=1)
+            .head()
+        ),
+    }
+
+    h0_results.append(result)
+
+# Save H0 results to a CSV file
+h0_results_df = pd.DataFrame(h0_results)
+h0_results_df.to_csv("h0_clusters_summary.csv", index=False, encoding="utf-8")
+
+print("H0 results saved to h0_clusters_summary.csv")
